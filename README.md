@@ -9,7 +9,6 @@
 import UpdateManager from 'test';
 
 const Root = createContext('');
-
 function A (props) {
    const um =  useRef(new UpdateManager({ man1: { h: '你杀了我爹！'}, man2: "" })).current;
    useEffect(() => {
@@ -28,27 +27,7 @@ function A (props) {
         um: um
     }}> <B/> </Root.Provider>
 }
-function B (props) {
-    return <C />
-}
-function C () {
-    return <D />
-}
-function D () {
-    return <>
-    <E/>
-    <F/>
-    </>
-}
-function F () {
-    const { um } = useContext(Root);
-    const { say } = um.useDeps({
-        say ({man2}) {
-            return man2;
-        }
-    });
-    return <div>{'man2' + say}</div>
-}
+...其他组件
 function E () {
     const { um } = useContext(Root);
     const { say } = um.useDeps({
@@ -59,3 +38,6 @@ function E () {
     return <div>{'man1: ' + say}</div>
 }
 ```
+
+在 A 组件中使用**um.setState({["man1.h"]: "值"})**就会自动更新使用了**useDeps({say(get){ return get("man1.h")}})**的组件。
+useDeps 中方法的返回值就是 useDeps 最后导出的属性的值
