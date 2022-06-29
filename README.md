@@ -39,5 +39,17 @@ function E () {
 }
 ```
 
-在 A 组件中使用**um.setState({["man1.h"]: "值"})**就会自动更新使用了**useDeps({say(get){ return get("man1.h")}})**的组件。
+在 A 组件中使用
+
+```
+um.setState({["man1.h"]: "值"})
+```
+
+就会自动更新使用了
+
+```
+useDeps({say(get){ return get("man1.h")}})
+```
+
+的组件。
 useDeps 中方法的返回值就是 useDeps 最后导出的属性的值
