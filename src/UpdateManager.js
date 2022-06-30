@@ -170,51 +170,58 @@ export default class UpdateManager {
     }
   };
 
+  useDepsState = (func, setFunc, ref) => {
+    this.isCollect = true;
+    this.currDeps = [];
+    const d = func(this.getData);
+    const [_, set_] = useState(d);
+
+    this.currDeps.forEach((e) => {
+      e.func = () => setFunc(set_);
+      e.ref = ref;
+    });
+    this.updateCallback[ref] = this.updateCallback[ref].concat(this.currDeps);
+
+    this.currDeps = [];
+    this.isCollect = false;
+    return [_, set_];
+  };
+  clear = (ref) => {
+    this.refs = this.refs.filter((r) => r !== ref);
+
+    this.updateCallback[ref] = [];
+  };
   refs = [];
   useDeps = (deps) => {
     const ref = useRef(Symbol("key")).current;
+    this.clear(ref);
+    this.refs.push(ref);
     const res = {};
     Object.keys(deps).forEach((key) => {
       const func = deps[key];
       if (typeof func !== "function") {
         return;
       }
-      this.isCollect = true;
-      this.currDeps = [];
-      const d = func(this.getData);
-      const [_, set_] = useState(d);
-      this.refs = this.refs.filter((r) => r !== ref);
-      this.refs.push(ref);
-      this.updateCallback[ref] = [];
+      const [_, set_] = this.useDepsState(
+        () => {
+          return useMemo(() => func(this.getData), []);
+        },
+        (set) => {
+          set(func(this.getData));
+        },
+        ref
+      );
+
       useEffect(() => {
         return () => {
-          this.updateCallback[ref] = [];
-          this.refs = this.refs.filter((r) => r !== ref);
+          this.clear(ref);
         };
       }, []);
-      // this.updateCallback[ref] = [];
-      // this.updateCallback = this.updateCallback?.filter((el) => el.ref !== ref);
-      // this.currDeps = this.currDeps.filter(
-      //   (el) => !this.updateCallback.find((e) => e.ref === el.ref && e.path === el.path),
-      // );
-      this.currDeps.forEach((e) => {
-        e.func = () => {
-          set_(func(this.getData));
-        };
-        e.ref = ref;
-      });
-      this.updateCallback[ref]?.push(...this.currDeps);
 
-      this.currDeps = [];
-      this.isCollect = false;
       res[key] = _;
     });
     return res;
   };
-
-  clear() {
-    this.updateCallback = [];
-  }
 
   updating = false;
   updates = [];
@@ -239,7 +246,7 @@ export default class UpdateManager {
     // });
     if (!this.updating) {
       this.updating = true;
-      setTimeout(() => {
+      Promise.resolve().then(() => {
         this.updating = false;
         this.updates.forEach((update) => {
           update();

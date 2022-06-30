@@ -10,11 +10,13 @@ function F(props) {
       return get("man2") || "";
     },
   });
+  console.log("render F ----------");
 
   return <div>{"man2:" + say}</div>;
 }
 const E = React.memo(function E(props) {
   const { um } = useContext(Root);
+  console.log("render E ----------");
   const { say } = um.useDeps({
     say(get) {
       return get("man1.h") || "";

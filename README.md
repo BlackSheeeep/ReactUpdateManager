@@ -31,8 +31,8 @@ function A (props) {
 function E () {
     const { um } = useContext(Root);
     const { say } = um.useDeps({
-        say ({ man1 }) {
-            return man1.h;
+        say (get) {
+            return get('man1.h');
         }
     });
     return <div>{'man1: ' + say}</div>
