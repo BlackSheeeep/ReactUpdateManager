@@ -238,6 +238,7 @@ export default class UpdateManager {
       useEffect(() => {
         return () => {
           this.clear(ref);
+          this.updateCallback[ref] = null;
         };
       }, []);
 
