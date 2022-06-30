@@ -170,27 +170,21 @@ export default class UpdateManager {
     }
   };
 
-  useDepsState = (func, setFunc, ref) => {
+  collectStart = () => {
     this.isCollect = true;
     this.currDeps = [];
-    const d = func(this.getData);
-    const [_, set_] = useState(d);
-
-    this.currDeps.forEach((e) => {
-      e.func = () => setFunc(set_);
-      e.ref = ref;
-    });
-    this.updateCallback[ref] = this.updateCallback[ref].concat(this.currDeps);
-
-    this.currDeps = [];
-    this.isCollect = false;
-    return [_, set_];
   };
+
+  collectEnd = () => {
+    this.isCollect = false;
+    this.currDeps = [];
+  };
+
   clear = (ref) => {
     this.refs = this.refs.filter((r) => r !== ref);
-
     this.updateCallback[ref] = [];
   };
+
   refs = [];
   useDeps = (deps) => {
     const ref = useRef(Symbol("key")).current;
@@ -202,23 +196,26 @@ export default class UpdateManager {
       if (typeof func !== "function") {
         return;
       }
-      const [_, set_] = this.useDepsState(
-        () => {
-          return useMemo(() => func(this.getData), []);
-        },
-        (set) => {
-          set(func(this.getData));
-        },
-        ref
-      );
 
+      this.collectStart();
+      // 这么写是为了减少在e.func执行时多一次计算func
+      const [funcRef, setFuncRef] = useState({ func });
+      const val = funcRef.func(this.getData);
+      this.currDeps.forEach((e) => {
+        e.func = () => {
+          setFuncRef({ func });
+        };
+        e.ref = ref;
+      });
+      this.updateCallback[ref].push(...this.currDeps);
+      this.collectEnd();
       useEffect(() => {
         return () => {
           this.clear(ref);
         };
       }, []);
 
-      res[key] = _;
+      res[key] = val;
     });
     return res;
   };
