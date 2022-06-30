@@ -1,4 +1,10 @@
-import React, { useState, useRef, useEffect, useMemo } from "react";
+import React, {
+  useState,
+  useRef,
+  useEffect,
+  useMemo,
+  useCallback,
+} from "react";
 import lodashSet from "lodash/set";
 
 // function castPath(value) {
@@ -182,15 +188,26 @@ export default class UpdateManager {
 
   clear = (ref) => {
     this.refs = this.refs.filter((r) => r !== ref);
-    this.updateCallback[ref] = [];
   };
 
   refs = [];
+  _updateQueue = [];
   useDeps = (deps) => {
     const ref = useRef(Symbol("key")).current;
+    const [_, set_] = useState(false);
     this.clear(ref);
     this.refs.push(ref);
     const res = {};
+    if (!this.updateCallback[ref]) {
+      this.updateCallback[ref] = [];
+    }
+    let timer = false;
+    const _update = () => {
+      if (!timer) {
+        timer = true;
+        set_(!_);
+      }
+    };
     Object.keys(deps).forEach((key) => {
       const func = deps[key];
       if (typeof func !== "function") {
@@ -198,16 +215,25 @@ export default class UpdateManager {
       }
 
       this.collectStart();
-      // 这么写是为了减少在e.func执行时多一次计算func
-      const [funcRef, setFuncRef] = useState({ func });
-      const val = funcRef.func(this.getData);
+      const funcRef = useRef({ func }).current;
+      const initVal = useMemo(() => funcRef.func(this.getData), []);
+      const val = useRef(initVal);
+      const needExcute = this.updateCallback[ref].find(
+        (e) => e.funcRef === funcRef && e.needExcute
+      );
+      if (needExcute) {
+        val.current = funcRef.func(this.getData);
+      }
       this.currDeps.forEach((e) => {
-        e.func = () => {
-          setFuncRef({ func });
-        };
-        e.ref = ref;
+        e.func = _update;
+        e.funcRef = funcRef;
+        e.needExcute = false;
+      });
+      this.updateCallback[ref] = this.updateCallback[ref].filter((e) => {
+        return !this.currDeps.find((el) => el.funcRef === e.funcRef);
       });
       this.updateCallback[ref].push(...this.currDeps);
+
       this.collectEnd();
       useEffect(() => {
         return () => {
@@ -215,8 +241,12 @@ export default class UpdateManager {
         };
       }, []);
 
-      res[key] = val;
+      res[key] = val.current;
     });
+    this.updateCallback[ref].forEach((e) => {
+      e.needExcute = false;
+    });
+
     return res;
   };
 
@@ -234,19 +264,19 @@ export default class UpdateManager {
           if (path === p) {
             func &&
               typeof func === "function" &&
-              !this.updates.find((e) => e === func) &&
-              this.updates.push(func);
+              !this.updates.find((e) => e.func === func) &&
+              this.updates.push(el);
+            el.needExcute = true;
           }
         });
       }
     }
-    // });
     if (!this.updating) {
       this.updating = true;
       Promise.resolve().then(() => {
         this.updating = false;
-        this.updates.forEach((update) => {
-          update();
+        this.updates.forEach((el) => {
+          el.func();
         });
         this.updates = [];
       });
